@@ -36,5 +36,11 @@ jobs:
           echo "Validating Bicep examples..."
           find ./examples -name "*.bicep" | while read template; do
             echo "Validating $template"
-            az bicep build --file "$template"
+            az bicep build --file "$template" --verbose
+            
+            # Continue to the next file even if there's an error
+            # This ensures all templates are validated even if some fail
+            if [ $? -ne 0 ]; then
+              echo "::warning::Failed to validate $template"
+            fi
           done

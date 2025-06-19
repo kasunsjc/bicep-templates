@@ -14,20 +14,21 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 param baseName string = 'webapp'
 param environment string = 'dev'
+param timestamp string = utcNow('yyyy-MM-dd') // Use utcNow as a parameter default value
 
 // Variables
 var tags = {
   Environment: environment
   Application: baseName
   DeployedBy: 'Bicep'
-  CreatedOn: '${utcNow('yyyy-MM-dd')}'
+  CreatedOn: timestamp
 }
 
 // Create a unique suffix based on resource group ID
 var uniqueSuffix = uniqueString(resourceGroup().id)
 
 // 1. Deploy Virtual Network 
-module vnetModule '../modules/networking/virtual-network/main.bicep' = {
+module vnetModule '../../modules/networking/virtual-network/main.bicep' = {
   name: 'vnet-deployment'
   params: {
     vnetName: '${baseName}-${environment}-vnet'
@@ -58,7 +59,7 @@ module vnetModule '../modules/networking/virtual-network/main.bicep' = {
 }
 
 // 2. Deploy Storage Account
-module storageModule '../modules/storage/storage-account/main.bicep' = {
+module storageModule '../../modules/storage/storage-account/main.bicep' = {
   name: 'storage-deployment'
   params: {
     storageAccountName: '${baseName}${environment}${uniqueSuffix}'
@@ -80,7 +81,7 @@ module storageModule '../modules/storage/storage-account/main.bicep' = {
 }
 
 // 3. Deploy Key Vault
-module keyVaultModule '../modules/security/key-vault/main.bicep' = {
+module keyVaultModule '../../modules/security/key-vault/main.bicep' = {
   name: 'keyvault-deployment'
   params: {
     keyVaultName: '${baseName}-${environment}-${uniqueSuffix}-kv'
