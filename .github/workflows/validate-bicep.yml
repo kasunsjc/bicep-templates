@@ -14,13 +14,12 @@ jobs:
       - uses: actions/checkout@v3
       
       - name: Azure Login
-        uses: Azure/login@v1
+        uses: azure/login@v2
         with:
-          auth-type: IDENTITY
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          enable-AzPSSession: true
+          client-id: ${{ vars.AZURE_CLIENT_ID || secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID || secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID || secrets.AZURE_SUBSCRIPTION_ID }}
+          allow-no-subscriptions: true # Optional: set to true if you don't need a subscription
           
       - name: Install Bicep CLI
         run: |
