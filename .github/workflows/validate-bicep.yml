@@ -1,0 +1,40 @@
+name: Validate Bicep Templates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Azure Login
+        uses: Azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          
+      - name: Install Bicep CLI
+        run: |
+          az bicep version || az bicep install
+          az bicep version
+      
+      - name: Validate Module Templates
+        run: |
+          echo "Validating Bicep modules..."
+          find ./modules -name "main.bicep" | while read template; do
+            echo "Validating $template"
+            az bicep build --file "$template"
+          done
+      
+      - name: Validate Example Templates
+        run: |
+          echo "Validating Bicep examples..."
+          find ./examples -name "*.bicep" | while read template; do
+            echo "Validating $template"
+            az bicep build --file "$template"
+          done

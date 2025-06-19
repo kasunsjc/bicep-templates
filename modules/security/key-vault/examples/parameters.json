@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "keyVaultName": {
+      "value": "example-key-vault"
+    },
+    "enabledForDeployment": {
+      "value": true
+    },
+    "enabledForTemplateDeployment": {
+      "value": true
+    },
+    "enabledForDiskEncryption": {
+      "value": false
+    },
+    "accessPolicies": {
+      "value": [
+        {
+          "tenantId": "[subscription().tenantId]",
+          "objectId": "00000000-0000-0000-0000-000000000000",
+          "permissions": {
+            "secrets": [
+              "get",
+              "list"
+            ],
+            "certificates": [
+              "get",
+              "list"
+            ]
+          }
+        }
+      ]
+    },
+    "tags": {
+      "value": {
+        "Environment": "Example",
+        "Department": "Security"
+      }
+    }
+  }
+}
