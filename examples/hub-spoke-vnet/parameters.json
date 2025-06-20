@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "eastus"
+    },
+    "hubVnetName": {
+      "value": "hub-vnet"
+    },
+    "hubVnetAddressPrefix": {
+      "value": "10.0.0.0/16"
+    },
+    "hubSubnetName": {
+      "value": "AzureFirewallSubnet"
+    },
+    "hubSubnetAddressPrefix": {
+      "value": "10.0.0.0/24"
+    },
+    "spoke1VnetName": {
+      "value": "spoke1-vnet"
+    },
+    "spoke1VnetAddressPrefix": {
+      "value": "10.1.0.0/16"
+    },
+    "spoke1SubnetName": {
+      "value": "ResourceSubnet"
+    },
+    "spoke1SubnetAddressPrefix": {
+      "value": "10.1.0.0/24"
+    },
+    "spoke2VnetName": {
+      "value": "spoke2-vnet"
+    },
+    "spoke2VnetAddressPrefix": {
+      "value": "10.2.0.0/16"
+    },
+    "spoke2SubnetName": {
+      "value": "ResourceSubnet"
+    },
+    "spoke2SubnetAddressPrefix": {
+      "value": "10.2.0.0/24"
+    },
+    "tags": {
+      "value": {
+        "environment": "development",
+        "project": "hub-spoke-network",
+        "deployedBy": "Bicep"
+      }
+    }
+  }
+}
