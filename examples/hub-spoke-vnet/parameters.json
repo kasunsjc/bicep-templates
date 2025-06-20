@@ -11,11 +11,17 @@
     "hubVnetAddressPrefix": {
       "value": "10.0.0.0/16"
     },
-    "hubSubnetName": {
-      "value": "AzureFirewallSubnet"
+    "firewallSubnetPrefix": {
+      "value": "10.0.0.0/26"
     },
-    "hubSubnetAddressPrefix": {
-      "value": "10.0.0.0/24"
+    "gatewaySubnetPrefix": {
+      "value": "10.0.1.0/27"
+    },
+    "hubManagementSubnetName": {
+      "value": "ManagementSubnet"
+    },
+    "hubManagementSubnetPrefix": {
+      "value": "10.0.2.0/24"
     },
     "spoke1VnetName": {
       "value": "spoke1-vnet"

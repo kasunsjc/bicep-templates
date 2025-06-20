@@ -6,7 +6,10 @@ This example demonstrates how to deploy a hub and spoke virtual network architec
 
 This template deploys:
 
-- One hub virtual network
+- One hub virtual network with:
+  - AzureFirewallSubnet - For Azure Firewall deployment
+  - GatewaySubnet - For VPN/ExpressRoute Gateway deployment
+  - Management subnet - For jumpboxes or management VMs
 - Two spoke virtual networks
 - Virtual network peerings between:
   - Hub to Spoke 1
@@ -18,24 +21,9 @@ This template deploys:
 
 ### Network Diagram
 
-```ascii
-┌───────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                               Azure Virtual Network Manager                                       │
-└───────────────────────────────────────────────────────────────────────────────────────────────────┘
+![Hub and Spoke Network Architecture](./asserts/Hub%20and%20spoke.png)
 
-┌───────────────────────────┐         ┌───────────────────┐         ┌───────────────────────────┐
-│   Spoke virtual network   │         │Hub virtual network│         │   Spoke virtual network   │
-│                           │◄───────►│                   │◄───────►│                           │
-│  ┌─────────────────────┐  │    Connected    ┌─────────┐ │    Connected    ┌─────────────────────┐  │
-│  │   Resource subnet   │  │    Virtual      │         │ │    Virtual      │   Resource subnet   │  │
-│  │                     │  │    Networks     │         │ │    Networks     │                     │  │
-│  └─────────────────────┘  │                 └─────────┘ │                 └─────────────────────┘  │
-└───────────────────────────┘                             └───────────────────────────────────────────┘
-           ▲                                                                      ▲
-           │                                                                      │
-           └──────────────────────────────────────────────────────────────────────┘
-                                  Directly Connected Virtual Networks
-```
+
 
 ## Parameters
 
@@ -44,8 +32,10 @@ This template deploys:
 | location | Azure region for deployment |
 | hubVnetName | Name of the hub virtual network |
 | hubVnetAddressPrefix | Address space for the hub virtual network |
-| hubSubnetName | Name of the subnet in the hub virtual network |
-| hubSubnetAddressPrefix | Address space for the hub subnet |
+| firewallSubnetPrefix | Address space for the Azure Firewall subnet (must be named 'AzureFirewallSubnet') |
+| gatewaySubnetPrefix | Address space for the Gateway subnet (must be named 'GatewaySubnet') |
+| hubManagementSubnetName | Name of the management subnet in the hub network |
+| hubManagementSubnetPrefix | Address space for the hub management subnet |
 | spoke1VnetName | Name of the first spoke virtual network |
 | spoke1VnetAddressPrefix | Address space for the first spoke virtual network |
 | spoke1SubnetName | Name of the subnet in the first spoke virtual network |

@@ -13,8 +13,12 @@ param location = 'eastus'
 // Hub Virtual Network parameters
 param hubVnetName = 'hub-vnet'
 param hubVnetAddressPrefix = '10.0.0.0/16'
-param hubSubnetName = 'AzureFirewallSubnet'
-param hubSubnetAddressPrefix = '10.0.0.0/24'
+
+// Subnet parameters for the hub network
+param firewallSubnetPrefix = '10.0.0.0/26'     // AzureFirewallSubnet
+param gatewaySubnetPrefix = '10.0.1.0/27'      // GatewaySubnet
+param hubManagementSubnetName = 'ManagementSubnet'
+param hubManagementSubnetPrefix = '10.0.2.0/24'
 
 // Spoke 1 Virtual Network parameters
 param spoke1VnetName = 'spoke1-vnet'

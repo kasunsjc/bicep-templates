@@ -14,8 +14,18 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 param hubVnetName string = 'hub-vnet'
 param hubVnetAddressPrefix string = '10.0.0.0/16'
-param hubSubnetName string = 'AzureFirewallSubnet' // Name required for Azure Firewall subnet
-param hubSubnetAddressPrefix string = '10.0.0.0/24'
+
+// Firewall subnet parameters
+// Note: The name MUST be 'AzureFirewallSubnet' for Azure Firewall deployment
+param firewallSubnetPrefix string = '10.0.0.0/26'
+
+// Gateway subnet parameters
+// Note: The name MUST be 'GatewaySubnet' for VPN/ExpressRoute gateway deployment
+param gatewaySubnetPrefix string = '10.0.1.0/27'
+
+// Additional subnets in the hub
+param hubManagementSubnetName string = 'ManagementSubnet'
+param hubManagementSubnetPrefix string = '10.0.2.0/24'
 
 param spoke1VnetName string = 'spoke1-vnet'
 param spoke1VnetAddressPrefix string = '10.1.0.0/16'
@@ -43,8 +53,19 @@ module hubVnet '../../modules/networking/virtual-network/main.bicep' = {
     ]
     subnets: [
       {
-        name: hubSubnetName
-        addressPrefix: hubSubnetAddressPrefix
+        // Azure Firewall Subnet (name must be 'AzureFirewallSubnet')
+        name: 'AzureFirewallSubnet'
+        addressPrefix: firewallSubnetPrefix
+      }
+      {
+        // VPN or ExpressRoute Gateway Subnet (name must be 'GatewaySubnet')
+        name: 'GatewaySubnet'
+        addressPrefix: gatewaySubnetPrefix
+      }
+      {
+        // Management subnet for jumpboxes or management VMs
+        name: hubManagementSubnetName
+        addressPrefix: hubManagementSubnetPrefix
       }
     ]
     tags: tags
