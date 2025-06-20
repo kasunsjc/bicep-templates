@@ -19,12 +19,13 @@ param allowVirtualNetworkAccess bool = true
 @description('Allow forwarded traffic from the local virtual network to the remote virtual network')
 param allowForwardedTraffic bool = true
 
-@description('Allow gateway transit from the local virtual network to the remote virtual network')
+@description('Allow gateway transit from the local virtual network to the remote virtual network. Required to use remote gateways.')
 param allowGatewayTransit bool = false
 
-@description('Use the gateway in remote virtual network for the local virtual network')
+@description('Use the gateway in remote virtual network for the local virtual network. Can only be set to true if allowGatewayTransit is also true.')
 param useRemoteGateways bool = false
 
+assert(!(useRemoteGateways && !allowGatewayTransit), 'useRemoteGateways can only be true when allowGatewayTransit is also true.')
 // Extract VNet name from the resource ID
 var localVnetName = last(split(localVnetId, '/'))
 
