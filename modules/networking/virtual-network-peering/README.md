@@ -19,7 +19,7 @@ This module creates a peering connection between two Azure virtual networks.
 | Output Name | Type | Description |
 |------------|------|-------------|
 | peeringId | string | The resource ID of the virtual network peering |
-| peeringName | string | The name of the virtual network peering |
+| peeringResourceName | string | The name of the virtual network peering |
 
 ## Usage
 

@@ -21,7 +21,7 @@ This template deploys:
 
 ### Network Diagram
 
-![Hub and Spoke Network Architecture](./asserts/Hub%20and%20spoke.png)
+![Hub and Spoke Network Architecture](./assets/Hub-and-spoke.png)
 
 
 
