@@ -12,7 +12,7 @@ This module creates a peering connection between two Azure virtual networks.
 | allowVirtualNetworkAccess | bool | true | Allow virtual network access from the local virtual network to the remote virtual network |
 | allowForwardedTraffic | bool | true | Allow forwarded traffic from the local virtual network to the remote virtual network |
 | allowGatewayTransit | bool | false | Allow gateway transit from the local virtual network to the remote virtual network |
-| useRemoteGateways | bool | false | Use the gateway in remote virtual network for the local virtual network |
+| useRemoteGateways | bool | false | Use the gateway in remote virtual network for the local virtual network. Note: If you set this to true, allowGatewayTransit must also be true. The module ensures this constraint by automatically setting useRemoteGateways to false if allowGatewayTransit is false. |
 
 ## Outputs
 

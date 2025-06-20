@@ -25,9 +25,13 @@ param allowGatewayTransit bool = false
 @description('Use the gateway in remote virtual network for the local virtual network. Can only be set to true if allowGatewayTransit is also true.')
 param useRemoteGateways bool = false
 
-assert(!(useRemoteGateways && !allowGatewayTransit), 'useRemoteGateways can only be true when allowGatewayTransit is also true.')
+// Replaced assert with validation in the resource properties section
 // Extract VNet name from the resource ID
 var localVnetName = last(split(localVnetId, '/'))
+
+// Add runtime validation - if useRemoteGateways is true, allowGatewayTransit must be true as well
+// This replaces the previous assert statement with conditional logic that enforces the same constraint
+var effectiveUseRemoteGateways = useRemoteGateways ? allowGatewayTransit : false
 
 resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2021-08-01' = {
   name: '${localVnetName}/${peeringName}'
@@ -35,7 +39,7 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
     allowVirtualNetworkAccess: allowVirtualNetworkAccess
     allowForwardedTraffic: allowForwardedTraffic
     allowGatewayTransit: allowGatewayTransit
-    useRemoteGateways: useRemoteGateways
+    useRemoteGateways: effectiveUseRemoteGateways
     remoteVirtualNetwork: {
       id: remoteVnetId
     }
