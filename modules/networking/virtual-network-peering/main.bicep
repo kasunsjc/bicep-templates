@@ -26,7 +26,7 @@ param allowGatewayTransit bool = false
 param useRemoteGateways bool = false
 
 // Extract VNet name from the resource ID
-var localVnetName = split(localVnetId, '/')[8]
+var localVnetName = last(split(localVnetId, '/'))
 
 resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2021-08-01' = {
   name: '${localVnetName}/${peeringName}'
@@ -42,4 +42,6 @@ resource vnetPeering 'Microsoft.Network/virtualNetworks/virtualNetworkPeerings@2
 }
 
 output peeringId string = vnetPeering.id
-output peeringName string = vnetPeering.name
+output peeringResourceName string = vnetPeering.name
+
+
