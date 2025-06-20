@@ -1,0 +1,112 @@
+# Bicep compilation output
+*.json.new
+*.compiled.json
+
+# Local Azure development files
+.azure/
+azureprofile.json
+local.settings.json
+.env
+
+# Azure Functions artifacts
+bin/
+obj/
+appsettings.json
+local.settings.json
+
+# Local development environment
+.vs/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.user
+*.userosscache
+*.suo
+*.cache
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+.env
+.venv
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# Deployment-specific files that should not be in source control
+*.parameters.dev.json
+*.parameters.test.json
+*.parameters.prod.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Credentials and secrets (just in case)
+*.pfx
+*.key
+*.pem
+*.crt
+*.p12
+**/credentials.*
+**/secrets.*
+**/appsettings.*.json
+!appsettings.example.json
+**/connection.*.json
+!connection.example.json
+**/secret.*
+**/*.publishsettings
