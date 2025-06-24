@@ -113,3 +113,5 @@ This project is licensed under the [LICENSE](LICENSE) file in the repository.
 ---
 
 Happy coding and deploying with Azure Bicep! 🚀
+
+test sign code
