@@ -6,7 +6,7 @@
       "value": "aks-private"
     },
     "location": {
-      "value": "eastus"
+      "value": "northeurope"
     },
     "tags": {
       "value": {
@@ -15,19 +15,19 @@
       }
     },
     "vnetAddressPrefix": {
-      "value": "10.0.0.0/16"
+      "value": "10.100.0.0/16"
     },
     "aksSubnetPrefix": {
-      "value": "10.0.0.0/22"
+      "value": "10.100.1.0/24"
     },
     "peSubnetPrefix": {
-      "value": "10.0.4.0/24"
+      "value": "10.100.2.0/24"
     },
     "clusterName": {
       "value": "aks-private-cluster"
     },
     "kubernetesVersion": {
-      "value": ""
+      "value": "1.31.8"
     },
     "nodeVmSize": {
       "value": "Standard_DS3_v2"

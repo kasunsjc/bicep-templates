@@ -17,9 +17,10 @@ This setup creates:
    - Azure network policy
    - Private API server endpoint
    - System node pool
+   - Container Insights monitoring
 
 3. **Supporting resources**:
-   - Log Analytics workspace for monitoring
+   - Log Analytics workspace for Azure Monitor Container Insights
    - Key Vault (optional) for secrets management
 
 ## Prerequisites
@@ -90,6 +91,23 @@ To check available versions in your region before deployment:
 # List available Kubernetes versions
 az aks get-versions --location eastus --output table
 ```
+
+## Monitoring Configuration
+
+This deployment includes Azure Monitor Container Insights for comprehensive monitoring of your AKS cluster:
+
+- A Log Analytics workspace is deployed and connected to your AKS cluster
+- Container health, performance, and logs are automatically collected
+- Pre-configured dashboards and alerts are available in the Azure Portal
+- Integration with Azure Monitor for containerized applications monitoring
+
+After deployment, you can access Container Insights from the Azure portal by:
+
+1. Navigate to your AKS cluster
+2. Select "Insights" from the left menu
+3. View metrics, logs, and health status of your cluster and workloads
+
+For custom monitoring solutions, you can use the deployed Log Analytics workspace to send additional logs and metrics.
 
 ## Notes
 

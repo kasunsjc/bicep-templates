@@ -35,6 +35,7 @@ This module deploys an Azure Kubernetes Service (AKS) cluster with options to co
 | apiServerAuthorizedIpRanges | array | [] | Authorized IP ranges for API server access |
 | privateDNSZoneId | string | '' | Private DNS Zone ID for private cluster |
 | privateClusterEndpoint | bool | enablePrivateCluster | Private cluster API server endpoint |
+| logAnalyticsWorkspaceId | string | '' | Log Analytics Workspace ID for container monitoring |
 
 ## Outputs
 

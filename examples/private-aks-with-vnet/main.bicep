@@ -110,6 +110,7 @@ module aks '../../modules/compute/aks/main.bicep' = {
     
     // Enable Azure Container Insights
     enableContainerInsights: true
+    logAnalyticsWorkspaceId: logAnalytics.outputs.workspaceId
     
     // Use user-assigned managed identity
     identity: 'UserAssigned'
@@ -128,16 +129,15 @@ module aks '../../modules/compute/aks/main.bicep' = {
   }
 }
 
-// Optional: Add Monitoring/Log Analytics Workspace
-resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
-  name: '${prefix}-law'
-  location: location
-  tags: tags
-  properties: {
-    sku: {
-      name: 'PerGB2018'
-    }
+// Add Log Analytics Workspace for monitoring
+module logAnalytics '../../modules/monitoring/log-analytics/main.bicep' = {
+  name: 'law-deployment'
+  params: {
+    name: '${prefix}-law'
+    location: location
+    tags: tags
     retentionInDays: 30
+    sku: 'PerGB2018'
   }
 }
 
@@ -158,3 +158,5 @@ output vnetName string = vnet.outputs.vnetName
 output vnetId string = vnet.outputs.vnetId
 output aksClusterName string = aks.outputs.aksClusterName
 output aksClusterId string = aks.outputs.aksClusterId
+output logAnalyticsWorkspaceName string = logAnalytics.outputs.workspaceName
+output logAnalyticsWorkspaceId string = logAnalytics.outputs.workspaceId

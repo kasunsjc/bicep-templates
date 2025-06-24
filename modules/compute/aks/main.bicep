@@ -22,10 +22,11 @@ param osDiskSizeGB int = 0
 @description('The version of Kubernetes. Specify a specific version like "1.29.2" or leave empty to use the default version')
 param kubernetesVersion string = ''
 
+// TODO - Add use of Azure network plugin overlay
+// TODO - Add Support for the cilium network plugin and other network policies
 @description('Network plugin used for building Kubernetes network')
 @allowed([
   'azure'
-  'kubenet'
 ])
 param networkPlugin string = 'azure'
 
@@ -88,6 +89,9 @@ param privateDNSZoneId string = ''
 @description('Private cluster API server endpoint')
 param privateClusterEndpoint bool = enablePrivateCluster
 
+@description('Log Analytics Workspace ID for container monitoring. If specified, AKS will send metrics to this workspace')
+param logAnalyticsWorkspaceId string = ''
+
 resource managedCluster 'Microsoft.ContainerService/managedClusters@2022-11-01' = {
   name: clusterName
   location: location
@@ -149,9 +153,9 @@ resource managedCluster 'Microsoft.ContainerService/managedClusters@2022-11-01' 
       }
       omsagent: enableContainerInsights ? {
         enabled: true
-        config: {
-          logAnalyticsWorkspaceResourceID: ''  // This would need to be supplied as a parameter if used
-        }
+        config: !empty(logAnalyticsWorkspaceId) ? {
+          logAnalyticsWorkspaceResourceID: logAnalyticsWorkspaceId
+        } : {}
       } : {
         enabled: false
       }

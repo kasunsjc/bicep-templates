@@ -17,6 +17,7 @@ bicep-templates/
 │   ├── networking/           # VNets, NSGs, Load Balancers, etc.
 │   ├── storage/              # Storage Accounts, File Shares, etc.
 │   ├── security/             # Key Vaults, Managed Identities, etc.
+│   ├── monitoring/           # Log Analytics, Application Insights, etc.
 │   └── databases/            # SQL, CosmosDB, etc.
 ├── examples/                  # Example deployments using modules
 ├── pipelines/                 # CI/CD pipeline definitions
@@ -84,6 +85,11 @@ az deployment group create \
 
 - Key Vault
 - Managed Identities
+
+### Monitoring
+
+- Log Analytics Workspace
+- Container Insights for AKS
 
 ### Databases
 
