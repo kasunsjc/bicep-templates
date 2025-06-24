@@ -170,7 +170,7 @@ output aksClusterId string = managedCluster.id
 output aksClusterName string = managedCluster.name
 
 @description('The API server FQDN of the AKS cluster')
-output aksFqdn string = managedCluster.properties.fqdn
+output aksFqdn string = managedCluster.properties.privateFQDN
 
 @description('The Kubelet identity principal ID (if system assigned)')
 output kubeletIdentityPrincipalId string = managedCluster.properties.identityProfile.kubeletidentity.objectId

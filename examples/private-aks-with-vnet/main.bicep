@@ -92,7 +92,7 @@ resource aksIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
 }
 
 // Deploy AKS Cluster
-module aks '../../modules/compute/aks/main.bicep' = {
+module aks '../../modules/compute/aks-pvt/main.bicep' = {
   name: 'aks-deployment'
   params: {
     clusterName: clusterName
