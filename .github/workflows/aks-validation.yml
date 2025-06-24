@@ -1,0 +1,304 @@
+name: AKS Module Validation
+
+on:
+  push:
+    branches: [ main, master, feature/*, release/* ]
+    paths:
+      - 'modules/compute/aks/**'
+      - 'examples/private-aks-with-vnet/**'
+      - '.github/workflows/aks-validation.yml'
+      - '.github/scripts/aks-policy-validation.sh'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'modules/compute/aks/**'
+      - 'examples/private-aks-with-vnet/**'
+      - '.github/workflows/aks-validation.yml'
+      - '.github/scripts/aks-policy-validation.sh'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  aks-validation:
+    name: AKS Module Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Bicep
+        uses: aliencube/setup-bicep@v0.4
+        with:
+          version: latest
+      
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
+      
+      - name: Install Bicep Extensions
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az bicep install
+          az bicep version
+      
+      - name: Build AKS Module
+        run: |
+          echo "Building AKS Bicep module..."
+          if [ -d "modules/compute/aks" ]; then
+            az bicep build --file "modules/compute/aks/main.bicep" --outfile "modules/compute/aks/main.json"
+          else
+            echo "::warning::AKS module not found at expected location modules/compute/aks"
+          fi
+      
+      - name: Build AKS Example
+        run: |
+          echo "Building AKS Example..."
+          if [ -d "examples/private-aks-with-vnet" ]; then
+            az bicep build --file "examples/private-aks-with-vnet/main.bicep" --outfile "examples/private-aks-with-vnet/main.json"
+          else
+            echo "::warning::AKS example not found at expected location examples/private-aks-with-vnet"
+          fi
+      
+      - name: Run AKS Security Policy Validation
+        run: |
+          echo "Running AKS Security Policy Validation..."
+          chmod +x .github/scripts/aks-policy-validation.sh
+          ./.github/scripts/aks-policy-validation.sh
+      
+      - name: Validate AKS ARM Template
+        run: |
+          if [ -f "modules/compute/aks/main.json" ]; then
+            echo "Validating AKS ARM template against predefined rules..."
+            
+            # Check for secure network configuration
+            NETWORK_CONFIG=$(jq -r '.resources[] | select(.type == "Microsoft.ContainerService/managedClusters") | .properties.networkProfile' modules/compute/aks/main.json)
+            if [ -z "$NETWORK_CONFIG" ]; then
+              echo "::warning::Network profile configuration not found in AKS template"
+            fi
+            
+            # Check for monitoring configuration
+            MONITORING_CONFIG=$(jq -r '.resources[] | select(.type == "Microsoft.ContainerService/managedClusters") | .properties.addonProfiles.omsagent' modules/compute/aks/main.json)
+            if [ -z "$MONITORING_CONFIG" ]; then
+              echo "::warning::Monitoring configuration (omsagent) not found in AKS template"
+            fi
+            
+            # Check for managed identity usage
+            IDENTITY_CONFIG=$(jq -r '.resources[] | select(.type == "Microsoft.ContainerService/managedClusters") | .identity' modules/compute/aks/main.json)
+            if [ -z "$IDENTITY_CONFIG" ]; then
+              echo "::error::Managed identity configuration not found in AKS template"
+              exit 1
+            fi
+          else
+            echo "::warning::AKS ARM template not found at modules/compute/aks/main.json"
+          fi
+      
+      - name: Verify AKS Version Parameter
+        run: |
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            if grep -q "param kubernetesVersion string" "modules/compute/aks/main.bicep"; then
+              echo "✅ Found kubernetesVersion parameter in AKS module"
+            else
+              echo "::error::Missing kubernetesVersion parameter in AKS module"
+              exit 1
+            fi
+          else
+            echo "::warning::AKS Bicep file not found at modules/compute/aks/main.bicep"
+          fi
+      
+      - name: Verify Private Cluster Support
+        run: |
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            if grep -q "enablePrivateCluster" "modules/compute/aks/main.bicep"; then
+              echo "✅ Found enablePrivateCluster parameter in AKS module"
+            else
+              echo "::error::Missing enablePrivateCluster parameter in AKS module"
+              exit 1
+            fi
+          else
+            echo "::warning::AKS Bicep file not found at modules/compute/aks/main.bicep"
+          fi
+      
+      - name: Verify Log Analytics Integration
+        run: |
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            if grep -q "workspaceId\|logAnalyticsWorkspaceId\|workspaceResourceId" "modules/compute/aks/main.bicep"; then
+              echo "✅ Found Log Analytics integration in AKS module"
+            else
+              echo "::warning::Missing Log Analytics integration in AKS module"
+            fi
+          else
+            echo "::warning::AKS Bicep file not found at modules/compute/aks/main.bicep"
+          fi
+      
+      - name: Verify VNET Integration
+        run: |
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            if grep -q "vnetSubnetId\|subnetId" "modules/compute/aks/main.bicep"; then
+              echo "✅ Found VNET integration in AKS module"
+            else
+              echo "::error::Missing VNET integration in AKS module"
+              exit 1
+            fi
+          else
+            echo "::warning::AKS Bicep file not found at modules/compute/aks/main.bicep"
+          fi
+
+  aks-best-practices:
+    name: AKS Best Practices
+    runs-on: ubuntu-latest
+    needs: aks-validation
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Check AKS Security Features
+        run: |
+          echo "Checking AKS security features implementation..."
+          
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            # Check for network policies
+            if grep -q "networkPolicy" "modules/compute/aks/main.bicep"; then
+              echo "✅ Network policy support found"
+            else
+              echo "::warning::Consider adding network policy support"
+            fi
+            
+            # Check for authorized IP ranges
+            if grep -q "apiServerAuthorizedIPRanges\|authorizedIPRanges" "modules/compute/aks/main.bicep"; then
+              echo "✅ API server authorized IP ranges support found"
+            else
+              echo "::warning::Consider adding API server authorized IP ranges support"
+            fi
+            
+            # Check for Azure AD integration
+            if grep -q "aadProfile" "modules/compute/aks/main.bicep"; then
+              echo "✅ Azure AD integration support found"
+            else
+              echo "::warning::Consider adding Azure AD integration support"
+            fi
+            
+            # Check for auto-upgrade channel
+            if grep -q "autoUpgradeProfile\|upgradeChannel" "modules/compute/aks/main.bicep"; then
+              echo "✅ Auto-upgrade channel support found"
+            else
+              echo "::warning::Consider adding auto-upgrade channel support"
+            fi
+            
+            # Check for node auto-scaling
+            if grep -q "enableAutoScaling" "modules/compute/aks/main.bicep"; then
+              echo "✅ Node auto-scaling support found"
+            else
+              echo "::warning::Consider adding node auto-scaling support"
+            fi
+          else
+            echo "::warning::AKS Bicep file not found at modules/compute/aks/main.bicep"
+          fi
+      
+      - name: Check AKS Module Documentation
+        run: |
+          echo "Checking AKS module documentation..."
+          
+          if [ -f "modules/compute/aks/README.md" ]; then
+            echo "✅ Found AKS module README.md"
+            
+            # Check for required sections
+            if grep -q "# " "modules/compute/aks/README.md" && 
+               grep -q "## Parameters" "modules/compute/aks/README.md" && 
+               grep -q "## Outputs" "modules/compute/aks/README.md" && 
+               grep -q "## Example" "modules/compute/aks/README.md"; then
+              echo "✅ README.md contains required sections"
+            else
+              echo "::warning::README.md is missing one or more required sections (title, Parameters, Outputs, Example)"
+            fi
+          else
+            echo "::error::Missing README.md for AKS module"
+            exit 1
+          fi
+      
+      - name: Generate AKS Best Practices Report
+        run: |
+          echo "Generating AKS Best Practices Report..."
+          
+          echo "# AKS Module Implementation Report" > aks-report.md
+          echo "" >> aks-report.md
+          echo "## Validation Results" >> aks-report.md
+          
+          if [ -f "modules/compute/aks/main.bicep" ]; then
+            echo "✅ AKS Module Exists" >> aks-report.md
+            
+            # Check for features
+            features=(
+              "kubernetesVersion:Kubernetes Version Parameter"
+              "enablePrivateCluster:Private Cluster Support"
+              "vnetSubnetId:VNET Integration"
+              "workspaceId:Log Analytics Integration"
+              "networkPolicy:Network Policy Support"
+              "apiServerAuthorizedIPRanges:API Server IP Restrictions"
+              "aadProfile:Azure AD Integration"
+              "enableAutoScaling:Node Auto-scaling"
+              "autoUpgradeProfile:Auto-upgrade Channel"
+            )
+            
+            echo "" >> aks-report.md
+            echo "### Features" >> aks-report.md
+            
+            for feature in "${features[@]}"; do
+              key="${feature%%:*}"
+              desc="${feature#*:}"
+              
+              if grep -q "$key" "modules/compute/aks/main.bicep"; then
+                echo "✅ $desc" >> aks-report.md
+              else
+                echo "❌ $desc" >> aks-report.md
+              fi
+            done
+          else
+            echo "❌ AKS Module Missing" >> aks-report.md
+          fi
+          
+          echo "" >> aks-report.md
+          echo "## Recommendations" >> aks-report.md
+          echo "- Ensure all security features are implemented and parameterized" >> aks-report.md
+          echo "- Document all parameters with @description decorators" >> aks-report.md
+          echo "- Provide examples for all supported configurations" >> aks-report.md
+          
+          cat aks-report.md
+      
+      - name: Upload AKS Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: aks-best-practices-report
+          path: aks-report.md
+          retention-days: 7
+
+  summary:
+    name: Generate Validation Summary
+    runs-on: ubuntu-latest
+    needs: [aks-validation, aks-best-practices]
+    if: always()
+    
+    steps:
+      - name: Generate Summary Report
+        run: |
+          echo "# AKS Module Validation Summary" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Status" >> $GITHUB_STEP_SUMMARY
+          
+          # Check job statuses
+          if [ "${{ needs.aks-validation.result }}" == "success" ]; then
+            echo "✅ **AKS Validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **AKS Validation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.aks-best-practices.result }}" == "success" ]; then
+            echo "✅ **Best Practices Review**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Best Practices Review**: Issues detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- For security issues, review the AKS security policy validation output" >> $GITHUB_STEP_SUMMARY
+          echo "- Review the AKS Best Practices Report for feature recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- Ensure all required parameters are documented and have proper descriptions" >> $GITHUB_STEP_SUMMARY

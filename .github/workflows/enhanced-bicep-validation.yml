@@ -1,0 +1,432 @@
+name: Enhanced Bicep Validation
+
+on:
+  push:
+    branches: [ main, master, feature/*, release/* ]
+    paths:
+      - '**.bicep'
+      - '**.json'
+      - '.github/workflows/enhanced-bicep-validation.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.bicep'
+      - '**.json'
+      - '.github/workflows/enhanced-bicep-validation.yml'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  bicep-validation:
+    name: Basic Bicep Validation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Bicep
+        uses: aliencube/setup-bicep@v0.4
+        with:
+          version: latest
+      
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
+        
+      - name: Install Bicep Extensions
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az bicep install
+          az bicep version
+      
+      - name: Lint Bicep Files
+        run: |
+          echo "Running Bicep linting checks..."
+          find . -name '*.bicep' -type f | while read file; do
+            echo "Linting $file"
+            az bicep build --file "$file" --stdout --diagnostics-only
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep linting failed for $file"
+              exit 1
+            fi
+          done
+      
+      - name: Build Bicep Modules
+        run: |
+          echo "Building Bicep modules..."
+          find ./modules -name 'main.bicep' -type f | while read file; do
+            echo "Building $file"
+            az bicep build --file "$file" --outfile "${file%.bicep}.json"
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep build failed for $file"
+              exit 1
+            fi
+          done
+      
+      - name: Build Bicep Examples
+        run: |
+          echo "Building Bicep examples..."
+          find ./examples -name 'main.bicep' -type f | while read file; do
+            echo "Building $file"
+            az bicep build --file "$file" --outfile "${file%.bicep}.json"
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep build failed for $file"
+              exit 1
+            fi
+          done
+      
+      - name: Upload ARM Templates as Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: arm-templates
+          path: |
+            **/main.json
+          retention-days: 1
+
+  parameter-validation:
+    name: Validate Parameter Files
+    runs-on: ubuntu-latest
+    needs: bicep-validation
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Check Parameter Files Structure
+        run: |
+          echo "Validating parameter files structure..."
+          
+          find . -name 'parameters.json' -type f | while read file; do
+            echo "Validating $file"
+            
+            # Check if the file is valid JSON
+            if ! jq empty "$file" 2>/dev/null; then
+              echo "::error::Invalid JSON in $file"
+              exit 1
+            fi
+            
+            # Check if parameters key exists
+            if ! jq -e '.parameters' "$file" >/dev/null 2>&1; then
+              echo "::error::Missing 'parameters' object in $file"
+              exit 1
+            fi
+            
+            # Check each parameter has a value property
+            INVALID_PARAMS=$(jq -r '.parameters | to_entries[] | select(.value | has("value") | not) | .key' "$file" 2>/dev/null)
+            if [ -n "$INVALID_PARAMS" ]; then
+              echo "::error::Parameters missing 'value' property in $file: $INVALID_PARAMS"
+              exit 1
+            fi
+          done
+      
+      - name: Validate Bicep Param Files
+        run: |
+          echo "Validating .bicepparam files..."
+          
+          find . -name '*.bicepparam' -type f | while read file; do
+            echo "Validating $file"
+            
+            # Check syntax using bicep
+            az bicep build-params --parameter-file "$file" --outfile "/dev/null"
+            if [ $? -ne 0 ]; then
+              echo "::error::Invalid .bicepparam file: $file"
+              exit 1
+            fi
+          done
+
+  iac-security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    needs: bicep-validation
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Download ARM Templates
+        uses: actions/download-artifact@v3
+        with:
+          name: arm-templates
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install Checkov
+        run: |
+          python -m pip install --upgrade pip
+          pip install checkov
+      
+      - name: Run Checkov Scan on ARM Templates
+        run: |
+          echo "Running Checkov security scan on ARM templates..."
+          find . -name "main.json" | xargs -I{} checkov -f {} --framework arm
+        continue-on-error: true
+
+      - name: Analyze Scan Results
+        run: |
+          echo "Analyzing security scan results..."
+          find . -name "main.json" | xargs -I{} checkov -f {} --framework arm --output json > checkov-results.json || true
+          
+          # Count high severity findings
+          HIGH_SEVERITY=$(jq '[.results.failed_checks[] | select(.severity == "HIGH")] | length' checkov-results.json 2>/dev/null || echo "0")
+          echo "Found $HIGH_SEVERITY high severity issues"
+          
+          # Report detailed findings
+          jq -r '.results.failed_checks[] | "::warning::Security Issue [\(.check_id)]: \(.check_name) in \(.file_path)"' checkov-results.json 2>/dev/null || true
+
+  arm-ttk:
+    name: ARM Template Toolkit Tests
+    runs-on: ubuntu-latest
+    needs: bicep-validation
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Download ARM Templates
+        uses: actions/download-artifact@v3
+        with:
+          name: arm-templates
+      
+      - name: Set up ARM-TTK
+        run: |
+          echo "Setting up ARM-TTK..."
+          git clone https://github.com/Azure/arm-ttk.git
+          pwsh -Command "Import-Module ./arm-ttk/arm-ttk.psd1"
+      
+      - name: Run ARM-TTK Tests
+        shell: pwsh
+        run: |
+          Write-Host "Running ARM-TTK tests on generated ARM templates..."
+          
+          # Test JSON files converted from Bicep
+          $failedTests = @()
+          
+          Get-ChildItem -Path . -Filter *.json -Recurse | 
+          Where-Object { $_.FullName -match '(modules|examples)' -and $_.Name -eq 'main.json' } | 
+          ForEach-Object {
+              Write-Host "Testing $($_.FullName)..."
+              $testResults = Test-AzTemplate -TemplatePath $_.FullName -Skip "IDs-Should-Be-Derived", "Resource-Should-Have-Location" -ErrorAction SilentlyContinue
+              
+              $failed = $testResults | Where-Object { -not $_.Passed }
+              if ($failed) {
+                  $failedTests += $failed | ForEach-Object { 
+                    [PSCustomObject]@{
+                      File = $_.FullName
+                      Name = $_.Name
+                      Errors = $_.Errors -join "; "
+                    }
+                  }
+                  
+                  Write-Host "::warning::Tests failed for $($_.FullName)"
+                  $failed | ForEach-Object {
+                      Write-Host "::warning::$($_.Name): $($_.Errors)"
+                  }
+              }
+          }
+          
+          # Export results to JSON for further analysis
+          $failedTests | ConvertTo-Json -Depth 3 > arm-ttk-results.json
+
+  bicep-standards:
+    name: Bicep Coding Standards
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Check Module Documentation
+        run: |
+          echo "Checking for README files in module directories..."
+          
+          # Find all module directories and check for README.md files
+          find ./modules -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            if [ ! -f "$dir/README.md" ]; then
+              echo "::error::Missing README.md in $dir"
+              exit 1
+            else
+              # Check README content requirements
+              if ! grep -q "# " "$dir/README.md" || ! grep -q "## Parameters" "$dir/README.md" || ! grep -q "## Outputs" "$dir/README.md"; then
+                echo "::warning::README.md in $dir is missing required sections (title, Parameters, Outputs)"
+              fi
+            fi
+          done
+      
+      - name: Check Parameter Descriptions
+        run: |
+          echo "Checking Bicep files for parameter descriptions..."
+          
+          # Check that all parameters have descriptions
+          find . -name '*.bicep' -type f | while read file; do
+            # Count parameters and description decorators
+            params_count=$(grep -c "^param " "$file" || echo 0)
+            desc_count=$(grep -c "@description(" "$file" || echo 0)
+            
+            if [ $desc_count -lt $params_count ]; then
+              echo "::error::Missing parameter descriptions in $file ($desc_count descriptions for $params_count parameters)"
+              exit 1
+            fi
+          done
+      
+      - name: Check Output Descriptions
+        run: |
+          echo "Checking Bicep files for output descriptions..."
+          
+          # Check that outputs have descriptions
+          find . -name '*.bicep' -type f | while read file; do
+            outputs_count=$(grep -c "^output " "$file" || echo 0)
+            desc_count=$(grep -c "@description(.*)output\|output.*@description" -A 1 "$file" || echo 0)
+            
+            if [ $desc_count -lt $outputs_count ] && [ $outputs_count -gt 0 ]; then
+              echo "::error::Missing output descriptions in $file"
+              exit 1
+            fi
+          done
+          
+      - name: Check Resource Tagging
+        run: |
+          echo "Checking resources for proper tagging..."
+          
+          # List of files to check
+          find . -name '*.bicep' -type f | while read file; do
+            # Count resource declarations
+            resource_count=$(grep -c "^resource " "$file" || echo 0)
+            
+            if [ $resource_count -gt 0 ]; then
+              # Check for tags property
+              tags_count=$(grep -c "tags: " "$file" || echo 0)
+              
+              if [ $tags_count -eq 0 ]; then
+                echo "::warning::Possible missing resource tags in $file"
+              fi
+            fi
+          done
+      
+      - name: Check Naming Conventions
+        run: |
+          echo "Checking naming conventions in Bicep files..."
+          
+          # Check parameter naming convention (camelCase)
+          find . -name '*.bicep' -type f | while read file; do
+            invalid_params=$(grep -n "^param [A-Z]" "$file" || echo "")
+            if [ -n "$invalid_params" ]; then
+              echo "::warning::Parameters should use camelCase in $file:"
+              echo "$invalid_params"
+            fi
+            
+            # Check variable naming convention (camelCase)
+            invalid_vars=$(grep -n "^var [A-Z]" "$file" || echo "")
+            if [ -n "$invalid_vars" ]; then
+              echo "::warning::Variables should use camelCase in $file:"
+              echo "$invalid_vars"
+            fi
+          done
+
+  dependency-validation:
+    name: Verify Dependencies
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Bicep
+        uses: aliencube/setup-bicep@v0.4
+        with:
+          version: latest
+      
+      - name: Check Module Dependencies
+        run: |
+          echo "Checking module dependencies..."
+          
+          find ./examples -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            echo "Checking dependencies in $file"
+            
+            # Look for module references
+            module_refs=$(grep -o "module [a-zA-Z0-9_]* '../../modules/.*'" "$file" || echo "")
+            
+            if [ -n "$module_refs" ]; then
+              echo "$module_refs" | while read -r ref; do
+                # Extract module path
+                module_path=$(echo "$ref" | grep -o "'../../modules/[^']*'" | tr -d "'")
+                
+                if [ -n "$module_path" ] && [ ! -f "$module_path/main.bicep" ]; then
+                  echo "::error::Referenced module doesn't exist: $module_path in file $file"
+                  exit 1
+                fi
+              done
+            fi
+          done
+      
+      - name: Check Example Parameter Files
+        run: |
+          echo "Checking example parameter files..."
+          
+          find ./examples -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            
+            # Check if parameter file exists
+            if [ ! -f "$dir/parameters.json" ] && [ ! -f "$dir/main.bicepparam" ]; then
+              echo "::warning::Missing parameter file for example $file"
+            fi
+          done
+
+  summary:
+    name: Generate Validation Summary
+    runs-on: ubuntu-latest
+    needs: [bicep-validation, parameter-validation, iac-security-scan, arm-ttk, bicep-standards, dependency-validation]
+    if: always()
+    
+    steps:
+      - name: Generate Summary Report
+        run: |
+          echo "# Bicep Template Validation Summary" > $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Status" >> $GITHUB_STEP_SUMMARY
+          
+          # Check job statuses
+          if [ "${{ needs.bicep-validation.result }}" == "success" ]; then
+            echo "✅ **Bicep Validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Bicep Validation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.parameter-validation.result }}" == "success" ]; then
+            echo "✅ **Parameter Validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Parameter Validation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.iac-security-scan.result }}" == "success" ]; then
+            echo "✅ **Security Scan**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **Security Scan**: Issues detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.arm-ttk.result }}" == "success" ]; then
+            echo "✅ **ARM-TTK Tests**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ **ARM-TTK Tests**: Issues detected" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.bicep-standards.result }}" == "success" ]; then
+            echo "✅ **Bicep Standards Check**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Bicep Standards Check**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "${{ needs.dependency-validation.result }}" == "success" ]; then
+            echo "✅ **Dependency Validation**: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Dependency Validation**: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Recommendations" >> $GITHUB_STEP_SUMMARY
+          echo "- For security scanning issues, review the Checkov results" >> $GITHUB_STEP_SUMMARY
+          echo "- For ARM-TTK warnings, consider implementing the suggested best practices" >> $GITHUB_STEP_SUMMARY
+          echo "- Ensure all resources have proper tagging for governance" >> $GITHUB_STEP_SUMMARY

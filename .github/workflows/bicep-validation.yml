@@ -1,0 +1,186 @@
+name: Validate Bicep Templates
+
+on:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '**.bicep'
+      - '.github/workflows/bicep-validation.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - '**.bicep'
+      - '.github/workflows/bicep-validation.yml'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  validate-bicep:
+    name: Validate Bicep Files
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Setup Bicep
+        uses: aliencube/setup-bicep@v0.4
+        with:
+          version: latest
+      
+      - name: Setup Azure CLI
+        uses: azure/setup-azure-cli@v1
+        
+      - name: Install Bicep Extensions
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az bicep install
+          az bicep version
+      
+      - name: Lint Bicep Files
+        run: |
+          echo "Running Bicep linting checks..."
+          find . -name '*.bicep' -type f | while read file; do
+            echo "Linting $file"
+            az bicep build --file "$file" --stdout --diagnostics-only
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep linting failed for $file"
+              exit 1
+            fi
+          done
+      
+      - name: Build Bicep Modules
+        run: |
+          echo "Building Bicep modules..."
+          find ./modules -name 'main.bicep' -type f | while read file; do
+            echo "Building $file"
+            az bicep build --file "$file" --outfile "${file%.bicep}.json"
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep build failed for $file"
+              exit 1
+            fi
+          done
+      
+      - name: Build Bicep Examples
+        run: |
+          echo "Building Bicep examples..."
+          find ./examples -name 'main.bicep' -type f | while read file; do
+            echo "Building $file"
+            az bicep build --file "$file" --outfile "${file%.bicep}.json"
+            if [ $? -ne 0 ]; then
+              echo "::error::Bicep build failed for $file"
+              exit 1
+            fi
+          done
+      
+      # This step validates your templates against Azure's schema
+      - name: Validate Bicep Templates
+        run: |
+          echo "Validating Bicep templates against Azure schema..."
+          
+          # Create a mock resource group name for validation
+          MOCK_RG="mock-rg-validation"
+          
+          # Validate modules that have parameter files
+          find ./modules -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            if [ -d "$dir/examples" ] && [ -f "$dir/examples/parameters.json" ]; then
+              echo "Validating $file with parameters"
+              az deployment group validate \
+                --resource-group "$MOCK_RG" \
+                --template-file "$file" \
+                --parameters "@$dir/examples/parameters.json" \
+                --no-prompt \
+                --handle-extended-json-format
+            fi
+          done
+          
+          # Validate examples
+          find ./examples -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            if [ -f "$dir/parameters.json" ]; then
+              echo "Validating $file with parameters"
+              az deployment group validate \
+                --resource-group "$MOCK_RG" \
+                --template-file "$file" \
+                --parameters "@$dir/parameters.json" \
+                --no-prompt \
+                --handle-extended-json-format || echo "::warning::Validation requires Azure context for $file"
+            fi
+          done
+      
+      # Run ARM-TTK checks (ARM Template Toolkit)
+      - name: Set up ARM-TTK
+        run: |
+          echo "Setting up ARM-TTK..."
+          git clone https://github.com/Azure/arm-ttk.git
+          pwsh -Command "Import-Module ./arm-ttk/arm-ttk.psd1"
+      
+      - name: Run ARM-TTK Tests
+        shell: pwsh
+        run: |
+          Write-Host "Running ARM-TTK tests on generated ARM templates..."
+          
+          # Test JSON files converted from Bicep
+          Get-ChildItem -Path . -Filter *.json -Recurse | 
+          Where-Object { $_.FullName -match '(modules|examples)' -and $_.Name -eq 'main.json' } | 
+          ForEach-Object {
+              Write-Host "Testing $($_.FullName)..."
+              $testResults = Test-AzTemplate -TemplatePath $_.FullName -Skip "IDs-Should-Be-Derived", "Resource-Should-Have-Location" -ErrorAction SilentlyContinue
+              
+              $failedTests = $testResults | Where-Object { -not $_.Passed }
+              if ($failedTests) {
+                  Write-Host "::warning::Tests failed for $($_.FullName)"
+                  $failedTests | ForEach-Object {
+                      Write-Host "::warning::$($_.Name): $($_.Errors)"
+                  }
+              }
+          }
+
+  check-metadata:
+    name: Check Bicep Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+      
+      - name: Check README Existence
+        run: |
+          echo "Checking for README files in module directories..."
+          
+          # Find all module directories and check for README.md files
+          find ./modules -name 'main.bicep' -type f | while read file; do
+            dir=$(dirname "$file")
+            if [ ! -f "$dir/README.md" ]; then
+              echo "::warning::Missing README.md in $dir"
+            fi
+          done
+      
+      - name: Check Parameter Descriptions
+        run: |
+          echo "Checking Bicep files for parameter descriptions..."
+          
+          # Check that all parameters have descriptions
+          find . -name '*.bicep' -type f | while read file; do
+            # Count parameters and description decorators
+            params_count=$(grep -c "^param " "$file" || echo 0)
+            desc_count=$(grep -c "@description(" "$file" || echo 0)
+            
+            if [ $desc_count -lt $params_count ]; then
+              echo "::warning::Missing parameter descriptions in $file ($desc_count descriptions for $params_count parameters)"
+            fi
+          done
+      
+      - name: Check Output Descriptions
+        run: |
+          echo "Checking Bicep files for output descriptions..."
+          
+          # Check that outputs have descriptions
+          find . -name '*.bicep' -type f | while read file; do
+            outputs_count=$(grep -c "^output " "$file" || echo 0)
+            desc_count=$(grep -c "@description(.*)output" -A 1 "$file" || echo 0)
+            
+            if [ $desc_count -lt $outputs_count ]; then
+              echo "::warning::Missing output descriptions in $file"
+            fi
+          done
