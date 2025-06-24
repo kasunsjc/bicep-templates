@@ -58,12 +58,16 @@ az deployment group create \
 ## 📦 Available Modules
 
 ### Compute
+
 - Virtual Machines
 - Virtual Machine Scale Sets
-- Azure Kubernetes Service
+- Azure Kubernetes Service (AKS)
+  - Private AKS clusters with Bring Your Own VNET
+  - System and user node pools
 - Container Instances
 
 ### Networking
+
 - Virtual Networks
 - Network Security Groups
 - Load Balancers
@@ -71,15 +75,18 @@ az deployment group create \
 - VPN Gateways
 
 ### Storage
+
 - Storage Accounts
 - Blob Containers
 - File Shares
 
 ### Security
+
 - Key Vault
 - Managed Identities
 
 ### Databases
+
 - Azure SQL
 - CosmosDB
 - MySQL/PostgreSQL
@@ -87,6 +94,7 @@ az deployment group create \
 ## 📖 Module Documentation
 
 Each module includes:
+
 - README with usage instructions
 - Parameter descriptions and default values
 - Output descriptions
@@ -100,6 +108,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 ## 📝 Module Design Principles
 
 Our modules follow these principles:
+
 1. **Composability**: Modules can be used together
 2. **Configurability**: Sensible defaults with option to override
 3. **Consistency**: Naming conventions and parameter patterns
@@ -113,4 +122,3 @@ This project is licensed under the [LICENSE](LICENSE) file in the repository.
 ---
 
 Happy coding and deploying with Azure Bicep! 🚀
-

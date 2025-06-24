@@ -1,0 +1,42 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "prefix": {
+      "value": "aks-private"
+    },
+    "location": {
+      "value": "eastus"
+    },
+    "tags": {
+      "value": {
+        "environment": "dev",
+        "project": "AKS Private Cluster Demo"
+      }
+    },
+    "vnetAddressPrefix": {
+      "value": "10.0.0.0/16"
+    },
+    "aksSubnetPrefix": {
+      "value": "10.0.0.0/22"
+    },
+    "peSubnetPrefix": {
+      "value": "10.0.4.0/24"
+    },
+    "clusterName": {
+      "value": "aks-private-cluster"
+    },
+    "kubernetesVersion": {
+      "value": ""
+    },
+    "nodeVmSize": {
+      "value": "Standard_DS3_v2"
+    },
+    "nodeCount": {
+      "value": 3
+    },
+    "enablePrivateCluster": {
+      "value": true
+    }
+  }
+}
